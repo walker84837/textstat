@@ -1,0 +1,26 @@
+# Maintainer: walker84837 <walker84837@gmail.com>
+pkgname=textstat
+pkgver=0.2.0
+pkgrel=1
+pkgdesc="A reliable and blazing fast text file analyzer."
+arch=('x86_64')
+url="https://github.com/walker84837/textstat"
+license=('BSD')
+depends=('go')
+makedepends=('git')
+source=("git+https://github.com/walker84837/textstat.git")
+md5sums=('SKIP')
+
+build() {
+  cd "${srcdir}/${pkgname}"
+  export GOPATH="${srcdir}/go"
+  mkdir -p "${GOPATH}/src/github.com/walker84837"
+  ln -sf "${srcdir}/${pkgname}" "${GOPATH}/src/github.com/walker84837/textstat"
+  cd "${GOPATH}/src/github.com/walker84837/textstat"
+  make all
+}
+
+package() {
+  cd "${srcdir}/${pkgname}"
+  install -Dm755 tstat "${pkgdir}/usr/bin/tstat"
+}
