@@ -8,70 +8,77 @@ import (
 	"os"
 	"regexp"
 	"strings"
+	"text/tabwriter"
 )
 
-func main() {
-	var filePath, text string
-	flag.StringVar(&filePath, "file", "", "Path to the input file")
-	flag.Parse()
+// Struct to hold text statistics
+type TextStats struct {
+	WordCount             int
+	LetterCount           int
+	SentenceCount         int
+	ParagraphCount        int
+	AverageWordLength     float64
+	AverageSentenceLength float64
+	LongestWord           string
+	MostCommonWord        string
+	UniqueWordCount       int
+	FleschKincaidGrade    float64
+	GunningFogIndex       float64
+	SMOGGrade             float64
+	EnglishLevel          string
+	SMOGInterpretation    string
+	FogInterpretation     string
+}
 
-	if filePath != "" {
-		file, err := os.Open(filePath)
-		if err != nil {
-			fmt.Println("Error opening file:", err)
-			return
-		}
-		defer file.Close()
+// Function to count syllables in a word
+func countSyllables(word string) int {
+	word = strings.ToLower(word)
+	vowelRegex := regexp.MustCompile(`[aeiouy]+`)
+	diphthongRegex := regexp.MustCompile(`[aeiou]{2}`)
+	tripthongRegex := regexp.MustCompile(`[aeiou]{3}`)
+	leadingTrailingRegex := regexp.MustCompile(`^[^aeiouy]+|[^aeiouy]+$`)
 
-		scanner := bufio.NewScanner(file)
-		for scanner.Scan() {
-			text += scanner.Text() + "\n"
-		}
+	// Removing leading and trailing non-vowels
+	word = leadingTrailingRegex.ReplaceAllString(word, "")
 
-		if err := scanner.Err(); err != nil {
-			fmt.Println("Error reading file:", err)
-			return
-		}
-	} else {
-		scanner := bufio.NewScanner(os.Stdin)
-		for scanner.Scan() {
-			text += scanner.Text() + "\n"
-		}
-	}
+	// Replacing tripthongs with single vowels
+	word = tripthongRegex.ReplaceAllString(word, "a")
+	// Replacing diphthongs with single vowels
+	word = diphthongRegex.ReplaceAllString(word, "a")
 
+	// Counting vowel groups
+	syllables := vowelRegex.FindAllString(word, -1)
+	return len(syllables)
+}
+
+// Function to calculate text statistics
+func calculateStats(text string) TextStats {
 	words := strings.Fields(text)
 	wordCount := len(words)
 	letterCount := len(regexp.MustCompile(`\S`).FindAllString(text, -1))
-
-	// Sentence count
 	sentenceCount := len(regexp.MustCompile(`[.!?]`).FindAllString(text, -1))
-
-	// Paragraph count
 	paragraphCount := len(strings.Split(text, "\n\n"))
 
-	// Average word length
-	var totalWordLength int
+	var totalWordLength, totalSyllables, complexWordCount int
+	longestWord := ""
+	wordFrequency := make(map[string]int)
+
 	for _, word := range words {
 		totalWordLength += len(word)
-	}
-	averageWordLength := float64(totalWordLength) / float64(wordCount)
-
-	// Average sentence length
-	averageSentenceLength := float64(wordCount) / float64(sentenceCount)
-
-	// Longest word
-	longestWord := ""
-	for _, word := range words {
 		if len(word) > len(longestWord) {
 			longestWord = word
 		}
-	}
-
-	// Most common word
-	wordFrequency := make(map[string]int)
-	for _, word := range words {
+		syllables := countSyllables(word)
+		totalSyllables += syllables
+		if syllables >= 3 {
+			complexWordCount++
+		}
 		wordFrequency[strings.ToLower(word)]++
 	}
+
+	averageWordLength := float64(totalWordLength) / float64(wordCount)
+	averageSentenceLength := float64(wordCount) / float64(sentenceCount)
+
 	mostCommonWord := ""
 	maxFrequency := 0
 	for word, frequency := range wordFrequency {
@@ -81,51 +88,18 @@ func main() {
 		}
 	}
 
-	// Unique word count
 	uniqueWordCount := len(wordFrequency)
 
-	// Syllable count function
-	countSyllables := func(word string) int {
-		word = strings.ToLower(word)
-		vowelRegex := regexp.MustCompile(`[aeiouy]+`)
-		diphthongRegex := regexp.MustCompile(`[aeiou]{2}`)
-		tripthongRegex := regexp.MustCompile(`[aeiou]{3}`)
-		leadingTrailingRegex := regexp.MustCompile(`^[^aeiouy]+|[^aeiouy]+$`)
-
-		// Removing leading and trailing non-vowels
-		word = leadingTrailingRegex.ReplaceAllString(word, "")
-
-		// Replacing tripthongs with single vowels
-		word = tripthongRegex.ReplaceAllString(word, "a")
-		// Replacing diphthongs with single vowels
-		word = diphthongRegex.ReplaceAllString(word, "a")
-
-		// Counting vowel groups
-		syllables := vowelRegex.FindAllString(word, -1)
-		return len(syllables)
-	}
-
-	// Total syllable count and complex word count
-	totalSyllables := 0
-	complexWordCount := 0
-	for _, word := range words {
-		syllables := countSyllables(word)
-		totalSyllables += syllables
-		if syllables >= 3 {
-			complexWordCount++
-		}
-	}
-
-	fleschKincaidGradeLevel := 0.39*averageSentenceLength + 11.8*float64(totalSyllables)/float64(wordCount) - 15.59
+	fleschKincaidGrade := 0.39*averageSentenceLength + 11.8*float64(totalSyllables)/float64(wordCount) - 15.59
 	gunningFogIndex := 0.4 * (averageSentenceLength + 100*float64(complexWordCount)/float64(wordCount))
 	smogGrade := 1.043*math.Sqrt(float64(complexWordCount)*(30.0/float64(sentenceCount))) + 3.1291
 
 	var englishLevel, smogInterpretation, fogInterpretation string
 
 	// Determining English level based on Flesch-Kincaid Grade Level
-	if fleschKincaidGradeLevel <= 5 {
+	if fleschKincaidGrade <= 5 {
 		englishLevel = "Basic"
-	} else if fleschKincaidGradeLevel <= 8 {
+	} else if fleschKincaidGrade <= 8 {
 		englishLevel = "Intermediate"
 	} else {
 		englishLevel = "Advanced"
@@ -157,16 +131,74 @@ func main() {
 		fogInterpretation = "Very Advanced English, suitable for postgraduate students and professionals."
 	}
 
-	fmt.Printf("Word count: %d\n", wordCount)
-	fmt.Printf("Letter count: %d\n", letterCount)
-	fmt.Printf("Sentence count: %d\n", sentenceCount)
-	fmt.Printf("Paragraph count: %d\n", paragraphCount)
-	fmt.Printf("Average word length: %.2f\n", averageWordLength)
-	fmt.Printf("Average sentence length: %.2f words\n", averageSentenceLength)
-	fmt.Printf("Longest word: %s\n", longestWord)
-	fmt.Printf("Most common word: %s\n", mostCommonWord)
-	fmt.Printf("Unique word count: %d\n", uniqueWordCount)
-	fmt.Printf("Flesch-Kincaid Grade Level and interpretation: %.2f - %s\n", fleschKincaidGradeLevel, englishLevel)
-	fmt.Printf("Gunning Fog index and interpretation: %.2f - %s\n", gunningFogIndex, fogInterpretation)
-	fmt.Printf("SMOG grade and interpretation: %.2f - %s\n", smogGrade, smogInterpretation)
+	return TextStats{
+		WordCount:             wordCount,
+		LetterCount:           letterCount,
+		SentenceCount:         sentenceCount,
+		ParagraphCount:        paragraphCount,
+		AverageWordLength:     averageWordLength,
+		AverageSentenceLength: averageSentenceLength,
+		LongestWord:           longestWord,
+		MostCommonWord:        mostCommonWord,
+		UniqueWordCount:       uniqueWordCount,
+		FleschKincaidGrade:    fleschKincaidGrade,
+		GunningFogIndex:       gunningFogIndex,
+		SMOGGrade:             smogGrade,
+		EnglishLevel:          englishLevel,
+		SMOGInterpretation:    smogInterpretation,
+		FogInterpretation:     fogInterpretation,
+	}
+}
+
+// Function to print text statistics
+func printStats(stats TextStats) {
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, 1, ' ', tabwriter.AlignRight)
+	fmt.Fprintln(w, "Metric\tValue\tInterpretation\t")
+	fmt.Fprintf(w, "Word count\t%d\t\n", stats.WordCount)
+	fmt.Fprintf(w, "Letter count\t%d\t\n", stats.LetterCount)
+	fmt.Fprintf(w, "Sentence count\t%d\t\n", stats.SentenceCount)
+	fmt.Fprintf(w, "Paragraph count\t%d\t\n", stats.ParagraphCount)
+	fmt.Fprintf(w, "Average word length\t%.2f\t\n", stats.AverageWordLength)
+	fmt.Fprintf(w, "Average sentence length\t%.2f words\t\n", stats.AverageSentenceLength)
+	fmt.Fprintf(w, "Longest word\t%s\t\n", stats.LongestWord)
+	fmt.Fprintf(w, "Most common word\t%s\t\n", stats.MostCommonWord)
+	fmt.Fprintf(w, "Unique word count\t%d\t\n", stats.UniqueWordCount)
+	fmt.Fprintf(w, "Flesch-Kincaid Grade Level\t%.2f\t%s\t\n", stats.FleschKincaidGrade, stats.EnglishLevel)
+	fmt.Fprintf(w, "Gunning Fog Index\t%.2f\t%s\t\n", stats.GunningFogIndex, stats.FogInterpretation)
+	fmt.Fprintf(w, "SMOG Grade\t%.2f\t%s\t\n", stats.SMOGGrade, stats.SMOGInterpretation)
+	w.Flush()
+}
+
+func main() {
+	var filePath string
+	flag.StringVar(&filePath, "file", "", "Path to the input file")
+	flag.Parse()
+
+	var text string
+	if filePath != "" {
+		file, err := os.Open(filePath)
+		if err != nil {
+			fmt.Println("Error opening file:", err)
+			return
+		}
+		defer file.Close()
+
+		scanner := bufio.NewScanner(file)
+		for scanner.Scan() {
+			text += scanner.Text() + "\n"
+		}
+
+		if err := scanner.Err(); err != nil {
+			fmt.Println("Error reading file:", err)
+			return
+		}
+	} else {
+		scanner := bufio.NewScanner(os.Stdin)
+		for scanner.Scan() {
+			text += scanner.Text() + "\n"
+		}
+	}
+
+	stats := calculateStats(text)
+	printStats(stats)
 }
