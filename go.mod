@@ -1,3 +1,3 @@
-module github.com/walker84837/textstat/v2
+module github.com/walker84837/textstat
 
 go 1.22.4
