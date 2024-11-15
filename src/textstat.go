@@ -152,7 +152,7 @@ func calculateStats(text string) TextStats {
 
 // Function to print text statistics
 func printStats(stats TextStats) {
-	w := tabwriter.NewWriter(os.Stdout, 0, 0, 1, ' ', tabwriter.AlignRight)
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, 1, ' ', tabwriter.TabIndent)
 	fmt.Fprintln(w, "Metric\tValue\tInterpretation\t")
 	fmt.Fprintf(w, "Word count\t%d\t\n", stats.WordCount)
 	fmt.Fprintf(w, "Letter count\t%d\t\n", stats.LetterCount)
@@ -169,36 +169,90 @@ func printStats(stats TextStats) {
 	w.Flush()
 }
 
+// Function to extract text from a PDF file
+func extractPDFText(filePath string) (string, error) {
+	ctx, err := pdf.ReadContextFile(filePath)
+	if err != nil {
+		return "", err
+	}
+	defer ctx.Close()
+
+	text, err := pdf_text.GetTextContext(ctx, nil, nil)
+	if err != nil {
+		return "", err
+	}
+
+	return text, nil
+}
+
+// Function to extract text from a DOCX file
+func extractDocxText(filePath string) (string, error) {
+	doc, err := doc.NewDocFromFile(filePath)
+	if err != nil {
+		return "", err
+	}
+	defer doc.Close()
+
+	text, err := doc.GetPlainText()
+	if err != nil {
+		return "", err
+	}
+
+	return text, nil
+}
+
 func main() {
-	var filePath string
-	flag.StringVar(&filePath, "file", "", "Path to the input file")
+	filePath := flag.String("file", "", "Path to the input file")
+	fileType := flag.String("type", "text", "Type of the input file (text, pdf, docx)")
 	flag.Parse()
 
 	var text string
-	if filePath != "" {
-		file, err := os.Open(filePath)
-		if err != nil {
-			fmt.Println("Error opening file:", err)
-			return
-		}
-		defer file.Close()
+	var err error
 
-		scanner := bufio.NewScanner(file)
-		for scanner.Scan() {
-			text += scanner.Text() + "\n"
-		}
+	if *filePath != "" {
+		switch *fileType {
+		case "text":
+			file, err := os.Open(*filePath)
+			if err != nil {
+				fmt.Println("Error opening file:", err)
+				return
+			}
+			defer file.Close()
 
-		if err := scanner.Err(); err != nil {
-			fmt.Println("Error reading file:", err)
+			scanner := bufio.NewScanner(file)
+			for scanner.Scan() {
+				text += scanner.Text() + "\n"
+			}
+
+			if err := scanner.Err(); err != nil {
+				fmt.Println("Error reading file:", err)
+				return
+			}
+		case "pdf":
+			text, err = extractPDFText(*filePath)
+			if err != nil {
+				fmt.Println("Error extracting text from PDF:", err)
+				return
+			}
+		case "docx":
+			text, err = extractDocxText(*filePath)
+			if err != nil {
+				fmt.Println("Error extracting text from Word document:", err)
+				return
+			}
+		default:
+			fmt.Println("Unsupported file type")
 			return
 		}
 	} else {
+		// Read from standard input
 		scanner := bufio.NewScanner(os.Stdin)
 		for scanner.Scan() {
 			text += scanner.Text() + "\n"
 		}
 	}
 
+	// Calculate and print statistics
 	stats := calculateStats(text)
 	printStats(stats)
 }
