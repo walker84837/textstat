@@ -4,6 +4,6 @@ operatingsystem := $(shell go env GOOS)
 
 all:
 	@echo "Building release for '$(operatingsystem)'..."
-	go build -ldflags="-s -w -linkmode external" -o tstat src/textstat.go 
+	go build -ldflags="-s -w -linkmode external" -o tstat src/textstat.go src/document_extractor.go
 clean:
 	@rm -rf ./*.a *.o core *.log tstat

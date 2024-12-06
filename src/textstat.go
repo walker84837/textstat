@@ -152,13 +152,14 @@ func calculateStats(text string) TextStats {
 
 // Function to print text statistics
 func printStats(stats TextStats) {
-	w := tabwriter.NewWriter(os.Stdout, 0, 0, 1, ' ', tabwriter.TabIndent)
+	opts := tabwriter.TabIndent | tabwriter.DiscardEmptyColumns
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, 1, ' ', opts)
 	fmt.Fprintln(w, "Metric\tValue\tInterpretation\t")
 	fmt.Fprintf(w, "Word count\t%d\t\n", stats.WordCount)
 	fmt.Fprintf(w, "Letter count\t%d\t\n", stats.LetterCount)
 	fmt.Fprintf(w, "Sentence count\t%d\t\n", stats.SentenceCount)
 	fmt.Fprintf(w, "Paragraph count\t%d\t\n", stats.ParagraphCount)
-	fmt.Fprintf(w, "Average word length\t%.2f\t\n", stats.AverageWordLength)
+	fmt.Fprintf(w, "Average word length\t%.2f characters\t\n", stats.AverageWordLength)
 	fmt.Fprintf(w, "Average sentence length\t%.2f words\t\n", stats.AverageSentenceLength)
 	fmt.Fprintf(w, "Longest word\t%s\t\n", stats.LongestWord)
 	fmt.Fprintf(w, "Most common word\t%s\t\n", stats.MostCommonWord)
@@ -167,38 +168,6 @@ func printStats(stats TextStats) {
 	fmt.Fprintf(w, "Gunning Fog Index\t%.2f\t%s\t\n", stats.GunningFogIndex, stats.FogInterpretation)
 	fmt.Fprintf(w, "SMOG Grade\t%.2f\t%s\t\n", stats.SMOGGrade, stats.SMOGInterpretation)
 	w.Flush()
-}
-
-// Function to extract text from a PDF file
-func extractPDFText(filePath string) (string, error) {
-	ctx, err := pdf.ReadContextFile(filePath)
-	if err != nil {
-		return "", err
-	}
-	defer ctx.Close()
-
-	text, err := pdf_text.GetTextContext(ctx, nil, nil)
-	if err != nil {
-		return "", err
-	}
-
-	return text, nil
-}
-
-// Function to extract text from a DOCX file
-func extractDocxText(filePath string) (string, error) {
-	doc, err := doc.NewDocFromFile(filePath)
-	if err != nil {
-		return "", err
-	}
-	defer doc.Close()
-
-	text, err := doc.GetPlainText()
-	if err != nil {
-		return "", err
-	}
-
-	return text, nil
 }
 
 func main() {
@@ -229,17 +198,14 @@ func main() {
 				return
 			}
 		case "pdf":
-			text, err = extractPDFText(*filePath)
-			if err != nil {
-				fmt.Println("Error extracting text from PDF:", err)
-				return
-			}
 		case "docx":
-			text, err = extractDocxText(*filePath)
+			extractor := NewDocumentExtractor(*filePath, *fileType)
+			text, err = extractor.ExtractText()
 			if err != nil {
-				fmt.Println("Error extracting text from Word document:", err)
+				fmt.Println("Error extracting text:", err)
 				return
 			}
+
 		default:
 			fmt.Println("Unsupported file type")
 			return
