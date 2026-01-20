@@ -47,16 +47,14 @@ func (a *App) ParseFlags() (*Config, error) {
 
 	// Validate file type
 	switch config.FileType {
-	case "text", "pdf", "docx":
-		// Valid types
+	case "text", "pdf", "docx": // Valid types
 	default:
 		return nil, errors.NewValidationError("invalid file type. Supported types: text, pdf, docx")
 	}
 
 	// Validate output format
 	switch config.OutputFormat {
-	case "table", "json":
-		// Valid formats
+	case "table", "json": // Valid formats
 	default:
 		return nil, errors.NewValidationError("invalid output format. Supported formats: table, json")
 	}
@@ -105,25 +103,35 @@ func (a *App) getInputText(config *Config) (string, error) {
 }
 
 // printTableStats prints statistics in table format
-func (a *App) printTableStats(stats *textstat.TextStats) {
-	opts := tabwriter.TabIndent | tabwriter.DiscardEmptyColumns
-	w := tabwriter.NewWriter(os.Stdout, 0, 0, 1, ' ', opts)
+func (a *App) printTableStats(stats *textstat.TextStats) error {
+	const (
+		minwidth = 0
+		tabwidth = 0
+		padding  = 3
+		padchar  = ' '
+		flags    = 0
+	)
 
-	fmt.Fprintln(w, "Metric\tValue\tInterpretation\t")
-	fmt.Fprintf(w, "Word count\t%d\t\n", stats.WordCount)
-	fmt.Fprintf(w, "Letter count\t%d\t\n", stats.LetterCount)
-	fmt.Fprintf(w, "Sentence count\t%d\t\n", stats.SentenceCount)
-	fmt.Fprintf(w, "Paragraph count\t%d\t\n", stats.ParagraphCount)
-	fmt.Fprintf(w, "Average word length\t%.2f characters\t\n", stats.AverageWordLength)
-	fmt.Fprintf(w, "Average sentence length\t%.2f words\t\n", stats.AverageSentenceLength)
-	fmt.Fprintf(w, "Longest word\t%s\t\n", stats.LongestWord)
-	fmt.Fprintf(w, "Most common word\t%s\t\n", stats.MostCommonWord)
-	fmt.Fprintf(w, "Unique word count\t%d\t\n", stats.UniqueWordCount)
+	w := tabwriter.NewWriter(os.Stdout, minwidth, tabwidth, padding, padchar, flags)
+
+	// Print header with tabs
+	fmt.Fprintln(w, "METRIC\tVALUE\tINTERPRETATION\t")
+
+	// Print statistics with proper tab termination
+	fmt.Fprintf(w, "Word count\t%d\t-\t\n", stats.WordCount)
+	fmt.Fprintf(w, "Letter count\t%d\t-\t\n", stats.LetterCount)
+	fmt.Fprintf(w, "Sentence count\t%d\t-\t\n", stats.SentenceCount)
+	fmt.Fprintf(w, "Paragraph count\t%d\t-\t\n", stats.ParagraphCount)
+	fmt.Fprintf(w, "Average word length\t%.2f\tcharacters\t\n", stats.AverageWordLength)
+	fmt.Fprintf(w, "Average sentence length\t%.2f\twords\t\n", stats.AverageSentenceLength)
+	fmt.Fprintf(w, "Longest word\t%s\t-\t\n", stats.LongestWord)
+	fmt.Fprintf(w, "Most common word\t%s\t-\t\n", stats.MostCommonWord)
+	fmt.Fprintf(w, "Unique word count\t%d\t-\t\n", stats.UniqueWordCount)
 	fmt.Fprintf(w, "Flesch-Kincaid Grade Level\t%.2f\t%s\t\n", stats.FleschKincaidGrade, stats.EnglishLevel)
 	fmt.Fprintf(w, "Gunning Fog Index\t%.2f\t%s\t\n", stats.GunningFogIndex, stats.FogInterpretation)
 	fmt.Fprintf(w, "SMOG Grade\t%.2f\t%s\t\n", stats.SMOGGrade, stats.SMOGInterpretation)
 
-	w.Flush()
+	return w.Flush()
 }
 
 // printJSONStats prints statistics in JSON format
@@ -148,14 +156,15 @@ func (a *App) printJSONStats(stats *textstat.TextStats) {
 }
 
 // printStats prints statistics in the specified format
-func (a *App) printStats(stats *textstat.TextStats, format string) {
+func (a *App) printStats(stats *textstat.TextStats, format string) error {
 	switch format {
 	case "json":
 		a.printJSONStats(stats)
+		return nil
 	case "table":
 		fallthrough
 	default:
-		a.printTableStats(stats)
+		return a.printTableStats(stats)
 	}
 }
 
@@ -178,7 +187,9 @@ func (a *App) Run() error {
 	stats := a.analyzer.CalculateStats(text)
 
 	// Print results
-	a.printStats(stats, config.OutputFormat)
+	if err := a.printStats(stats, config.OutputFormat); err != nil {
+		return fmt.Errorf("failed to print stats: %w", err)
+	}
 
 	return nil
 }

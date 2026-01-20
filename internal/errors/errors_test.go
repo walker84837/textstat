@@ -189,7 +189,7 @@ func BenchmarkNewValidationError(b *testing.B) {
 	message := "benchmark validation error"
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		_ = NewValidationError(message)
 	}
 }
@@ -199,7 +199,7 @@ func BenchmarkNewFileError(b *testing.B) {
 	cause := errors.New("benchmark underlying error")
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		_ = NewFileError(message, cause)
 	}
 }
@@ -208,7 +208,7 @@ func BenchmarkTextStatError_Error(b *testing.B) {
 	err := NewValidationError("benchmark error message")
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		_ = err.Error()
 	}
 }
