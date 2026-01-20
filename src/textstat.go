@@ -198,6 +198,12 @@ func main() {
 				return
 			}
 		case "pdf":
+			extractor := NewDocumentExtractor(*filePath, *fileType)
+			text, err = extractor.ExtractText()
+			if err != nil {
+				fmt.Println("Error extracting text:", err)
+				return
+			}
 		case "docx":
 			extractor := NewDocumentExtractor(*filePath, *fileType)
 			text, err = extractor.ExtractText()

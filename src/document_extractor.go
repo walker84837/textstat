@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"io"
 	"strings"
+
+	"github.com/ledongthuc/pdf"
 )
 
 type DocumentExtractor struct {
@@ -19,9 +21,32 @@ func NewDocumentExtractor(filePath string, fileType string) *DocumentExtractor {
 	}
 }
 
-func extractPDFText( /*filePath string*/ ) (string, error) {
-	fmt.Println("unimplemented")
-	return "", nil
+func extractPDFText(filePath string) (string, error) {
+	f, r, err := pdf.Open(filePath)
+	defer func() {
+		_ = f.Close()
+	}()
+	if err != nil {
+		return "", err
+	}
+
+	var text string
+	totalPage := r.NumPage()
+
+	for i := 1; i <= totalPage; i++ {
+		p := r.Page(i)
+		if p.V.IsNull() {
+			continue
+		}
+
+		pageText, err := p.GetPlainText(nil)
+		if err != nil {
+			return "", err
+		}
+		text += pageText
+	}
+
+	return text, nil
 }
 
 func extractDocxText(filePath string) (string, error) {
@@ -86,7 +111,7 @@ func extractTextFromXml(xml string) string {
 func (d *DocumentExtractor) ExtractText() (string, error) {
 	switch d.fileType {
 	case "pdf":
-		return extractPDFText( /*d.filePath*/ )
+		return extractPDFText(d.filePath)
 	case "docx":
 		return extractDocxText(d.filePath)
 	default:
