@@ -1,6 +1,3 @@
-# This workflow will build a golang project
-# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-go
-
 name: Go
 
 on:
@@ -13,16 +10,41 @@ jobs:
 
   build:
     runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        go-version: ['1.24', '1.25']
+    
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v6
 
     - name: Set up Go
-      uses: actions/setup-go@v4
+      uses: actions/setup-go@v6
       with:
-        go-version: '1.21.7'
+        go-version: ${{ matrix.go-version }}
+
+    - name: Cache Go modules
+      uses: actions/cache@v5
+      with:
+        path: ~/go/pkg/mod
+        key: ${{ runner.os }}-go-${{ matrix.go-version }}-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-${{ matrix.go-version }}-
+
+    - name: Download dependencies
+      run: make deps
+
+    - name: Format code
+      run: make fmt
+
+    - name: Vet code
+      run: make vet
+
+    - name: Run tests
+      run: make test
+
+    - name: Run benchmarks
+      run: make test-bench
 
     - name: Build
-      run: make -B
-
-    # - name: Test
-    #   run: make -B
+      run: make build
